@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SecureLife Insurance — Pay Premium</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f3f6ff;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(11,95,255,0.12);
+    padding: 32px 28px;
+    max-width: 420px;
+    width: 92%;
+  }
+  .brand { color: #0B5FFF; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+  .sub { color: #888; font-size: 12px; margin-bottom: 20px; }
+  h2 { margin: 0 0 20px 0; font-size: 20px; color: #111; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; font-size: 14px; }
+  .row span:first-child { color: #666; }
+  .row span:last-child { font-weight: 600; color: #111; }
+  .amount { font-size: 28px; font-weight: 700; color: #0B5FFF; text-align: center; margin: 20px 0; }
+  button {
+    width: 100%;
+    background: #0B5FFF;
+    color: #fff;
+    border: none;
+    padding: 14px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  button:disabled { background: #a9c2ff; cursor: not-allowed; }
+  .status { text-align: center; margin-top: 16px; font-size: 14px; }
+  .success { color: #17a35a; }
+  .error { color: #d9363e; }
+  a.receipt-link {
+    display: block;
+    text-align: center;
+    margin-top: 14px;
+    background: #17a35a;
+    color: #fff;
+    padding: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .loader { text-align: center; color: #888; padding: 40px 0; }
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="brand">SecureLife Insurance Co.</div>
+    <div class="sub">Demo checkout — Webex CX pre-sales showcase</div>
+    <div id="content" class="loader">Loading payment details…</div>
+  </div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const paymentId = params.get('paymentId');
+  const content = document.getElementById('content');
+
+  async function loadPayment() {
+    if (!paymentId) {
+      content.innerHTML = '<div class="error">Missing paymentId in link.</div>';
+      return;
+    }
+    try {
+      const resp = await fetch(`/api/payment/${paymentId}`);
+      const data = await resp.json();
+      if (!resp.ok) {
+        content.innerHTML = `<div class="error">${data.error || 'Payment not found'}</div>`;
+        return;
+      }
+      render(data);
+    } catch (e) {
+      content.innerHTML = '<div class="error">Failed to load payment details.</div>';
+    }
+  }
+
+  function render(data) {
+    if (data.status === 'completed') {
+      content.innerHTML = `
+        <h2>Policy ${data.policyNumber}</h2>
+        <div class="row"><span>Policy Holder</span><span>${data.customerName}</span></div>
+        <div class="row"><span>Policy Type</span><span>${data.policyType || 'N/A'}</span></div>
+        <div class="amount">✅ Paid — INR ${Number(data.amount).toLocaleString('en-IN')}</div>
+        <a class="receipt-link" href="/api/receipt/${data.receiptId}" target="_blank">Download Receipt</a>
+      `;
+      return;
+    }
+
+    content.innerHTML = `
+      <h2>Policy ${data.policyNumber}</h2>
+      <div class="row"><span>Policy Holder</span><span>${data.customerName}</span></div>
+      <div class="row"><span>Policy Type</span><span>${data.policyType || 'N/A'}</span></div>
+      <div class="amount">INR ${Number(data.amount).toLocaleString('en-IN')}</div>
+      <button id="payBtn">Pay Now</button>
+      <div id="status" class="status"></div>
+    `;
+
+    document.getElementById('payBtn').addEventListener('click', payNow);
+  }
+
+  async function payNow() {
+    const btn = document.getElementById('payBtn');
+    const status = document.getElementById('status');
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    status.textContent = '';
+
+    try {
+      const resp = await fetch('/api/payment/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentId })
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        status.innerHTML = `<span class="error">${data.error || 'Payment failed'}</span>`;
+        btn.disabled = false;
+        btn.textContent = 'Pay Now';
+        return;
+      }
+      status.innerHTML = '<span class="success">Payment successful! Reloading…</span>';
+      setTimeout(loadPayment, 900);
+    } catch (e) {
+      status.innerHTML = '<span class="error">Network error. Try again.</span>';
+      btn.disabled = false;
+      btn.textContent = 'Pay Now';
+    }
+  }
+
+  loadPayment();
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SecureLife Insurance — Demo Backend</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { color: #0B5FFF; }
+  code { background: #f3f6ff; padding: 2px 6px; border-radius: 4px; }
+  .ep { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 12px 16px; margin: 10px 0; }
+  .method { font-weight: 700; color: #0B5FFF; }
+</style>
+</head>
+<body>
+  <h1>SecureLife Insurance — WxCC Demo Backend</h1>
+  <p>Dummy backend powering two Webex Contact Center outbound AI agent use cases: premium payment reminder + policy renewal/cross-sell.</p>
+
+  <h3>Use case 1 — Premium payment reminder</h3>
+  <div class="ep"><span class="method">GET</span> /api/policy/:policyNumber — fetch policy + due amount</div>
+  <div class="ep"><span class="method">POST</span> /api/payment/create-link — generate dummy payment link</div>
+  <div class="ep"><span class="method">GET</span> /pay.html?paymentId=... — customer checkout page</div>
+  <div class="ep"><span class="method">POST</span> /api/payment/complete — completes payment, generates receipt</div>
+  <div class="ep"><span class="method">GET</span> /api/receipt/:receiptId — download receipt PDF</div>
+
+  <h3>Use case 2 — Policy renewal + cross-sell</h3>
+  <div class="ep"><span class="method">GET</span> /api/cron/check-renewals — scans for renewals due in 7 days, fires webhook (runs daily via Vercel Cron, also callable manually)</div>
+  <div class="ep"><span class="method">GET</span> /api/campaign?days=7 — pull-based dial list alternative</div>
+  <div class="ep"><span class="method">GET</span> /api/campaign?log=true — audit trail of fired triggers</div>
+  <div class="ep"><span class="method">POST</span> /api/webex — mock endpoint to test webhook delivery</div>
+  <div class="ep"><span class="method">GET</span> /api/webex — see what the mock receiver got</div>
+
+  <h3>Utilities</h3>
+  <div class="ep"><span class="method">POST</span> /api/customers — seed dummy policyholders</div>
+  <div class="ep"><span class="method">GET</span> /api/customers — list all policyholders</div>
+
+  <p>See <code>README.md</code> in the project for full setup + curl examples.</p>
+</body>
+</html>

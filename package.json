@@ -1,0 +1,14 @@
+{
+  "name": "insurance-cx-backend",
+  "version": "1.0.0",
+  "description": "Dummy Insurance backend for Webex Contact Center outbound AI agent demos (Premium Payment Reminder + Policy Renewal/Cross-sell)",
+  "private": true,
+  "engines": {
+    "node": ">=18.x"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "pdfkit": "^0.15.0",
+    "uuid": "^9.0.1"
+  }
+}

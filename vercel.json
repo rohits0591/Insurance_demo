@@ -1,0 +1,15 @@
+{
+  "version": 2,
+  "functions": {
+    "api/**/*.js": {
+      "memory": 512,
+      "maxDuration": 15
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/check-renewals",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}
