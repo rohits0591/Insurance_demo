@@ -72,6 +72,18 @@ one function to stay comfortably under Vercel's Hobby-plan function limit.)
 
 ## 2. Use case 1 — Premium payment reminder (agent-side flow)
 
+**Step A0 (outbound campaigns)** — at call start, the WxCC flow looks up the
+policyholder by the dialed phone number (ANI) to build the dynamic greeting —
+no need to ask the caller for their policy number:
+```bash
+curl "https://<your-app>.vercel.app/api/policy/by-phone?phone=+919810000001" \
+  -H "x-api-key: <API_KEY>"
+```
+Returns `policyNumber`, `name`, `premiumAmount`, `premiumDueDate`, etc. at the
+top level — the flow drops these straight into the greeting's `{{customerName}}`,
+`{{policyNumber}}`, etc. placeholders. Skip this step if you already have the
+policy number from the campaign contact list.
+
 **Step A** — WxCC AI Agent (via HTTP/webhook action in Flow Designer or Agent Studio)
 looks up the customer:
 ```bash
@@ -152,6 +164,7 @@ curl https://<your-app>.vercel.app/api/cron/check-renewals
 | GET | `/api/customers` | x-api-key | List all policyholders |
 | POST | `/api/customers` | x-api-key | Seed/reseed 6 dummy policyholders |
 | GET | `/api/policy/:policyNumber` | x-api-key | Policy + premium/renewal details |
+| GET | `/api/policy/by-phone?phone=...` | x-api-key | Look up policyholder by phone (ANI) — for dynamic greetings without asking the caller for their policy number |
 | POST | `/api/payment/create-link` | x-api-key | Create dummy payment link |
 | GET | `/api/payment/:paymentId` | public | Payment status (used by pay.html) |
 | POST | `/api/payment/complete` | public | Simulate gateway success + generate receipt |
@@ -162,9 +175,10 @@ curl https://<your-app>.vercel.app/api/cron/check-renewals
 | POST | `/api/webex` | public | Mock Webex-side webhook receiver |
 | GET | `/api/webex` | x-api-key | See what the mock receiver logged |
 
-Only **10 serverless functions total** — comfortably under Vercel's Hobby-plan limit of 12,
-with headroom for future additions (e.g. the `/api/debug/env-check` diagnostic endpoint
-used during initial setup troubleshooting, which you can delete once things are stable).
+Only **11 serverless functions total** — under Vercel's Hobby-plan limit of 12,
+with 1 slot of headroom left. If you add more endpoints later, either consolidate
+further (same pattern used for `/api/webex` and `/api/campaign`) or upgrade to
+Vercel Pro, which removes the function-count cap entirely.
 
 `public` endpoints are customer-facing or receive-only by design (protected instead by
 unguessable IDs / meant to be called by external systems like a payment gateway or Webex).

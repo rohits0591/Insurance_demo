@@ -18,6 +18,7 @@
 
   <h3>Use case 1 — Premium payment reminder</h3>
   <div class="ep"><span class="method">GET</span> /api/policy/:policyNumber — fetch policy + due amount</div>
+  <div class="ep"><span class="method">GET</span> /api/policy/by-phone?phone=... — look up policyholder by phone (ANI) for dynamic greetings</div>
   <div class="ep"><span class="method">POST</span> /api/payment/create-link — generate dummy payment link</div>
   <div class="ep"><span class="method">GET</span> /pay.html?paymentId=... — customer checkout page</div>
   <div class="ep"><span class="method">POST</span> /api/payment/complete — completes payment, generates receipt</div>
