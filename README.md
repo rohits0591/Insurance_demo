@@ -1,4 +1,4 @@
-# SecureLife Insurance — Dummy Backend for WxCC Outbound AI Agent Demo
+# Axis Max Life Insurance — Dummy Backend for WxCC Outbound AI Agent Demo
 
 Backend for two Webex Contact Center outbound campaign + AI Agent demo use cases:
 
