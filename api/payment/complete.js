@@ -4,6 +4,33 @@ const { withCors, sendJson } = require('../../lib/http');
 const { generateReceiptPdf } = require('../../lib/generateReceipt');
 const { sendSms } = require('../../lib/sms');
 
+// Fires a webhook to Webex Connect so a Connect flow can push the receipt
+// link to the customer's mobile (WhatsApp/SMS). Failure here never fails
+// the payment itself — it's logged for visibility instead.
+async function triggerReceiptWebhook(payload) {
+  const url = process.env.WEBEX_CONNECT_RECEIPT_WEBHOOK_URL;
+  if (!url) {
+    return { skipped: true, reason: 'WEBEX_CONNECT_RECEIPT_WEBHOOK_URL not configured' };
+  }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (process.env.API_KEY) headers['x-api-key'] = process.env.API_KEY;
+  if (process.env.WEBEX_CONNECT_RECEIPT_AUTH_TOKEN) {
+    headers['Authorization'] = `Bearer ${process.env.WEBEX_CONNECT_RECEIPT_AUTH_TOKEN}`;
+  }
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload),
+    });
+    return { skipped: false, status: resp.status, ok: resp.ok };
+  } catch (err) {
+    return { skipped: false, ok: false, error: err.message };
+  }
+}
+
 // POST /api/payment/complete
 // Body: { "paymentId": "..." }
 //
@@ -15,8 +42,8 @@ const { sendSms } = require('../../lib/sms');
 // Flow: marks payment as completed -> generates receipt PDF -> stores it as
 // base64 directly in the Firestore 'receipts' doc (no Firebase Storage /
 // Blaze plan required — receipts are only a few KB) -> returns a
-// downloadable receipt link (this is the link you'd SMS/WhatsApp to the
-// customer).
+// downloadable receipt link -> fires a webhook to Webex Connect so a Connect
+// flow can send that link to the customer's mobile over WhatsApp/SMS.
 module.exports = async (req, res) => {
   withCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -106,12 +133,35 @@ module.exports = async (req, res) => {
       `Payment of INR ${payment.amount} received for policy ${payment.policyNumber}. Download your receipt: ${receiptDownloadUrl}`
     );
 
+    // 7. Fire webhook to Webex Connect so a Connect flow can push the
+    // receipt link to the customer over WhatsApp/SMS.
+    const webhookPayload = {
+      eventType: 'PAYMENT_RECEIPT_READY',
+      paymentId,
+      receiptId,
+      policyNumber: payment.policyNumber,
+      customerName: payment.customerName,
+      phone: payment.phone,
+      amount: payment.amount,
+      paidAt,
+      receiptUrl: receiptDownloadUrl,
+      triggeredAt: new Date().toISOString(),
+    };
+
+    const webhookResult = await triggerReceiptWebhook(webhookPayload);
+
+    await firestore.collection('webhook_deliveries').add({
+      ...webhookPayload,
+      webhookResult,
+    });
+
     return sendJson(res, 200, {
       message: 'Payment completed and receipt generated',
       paymentId,
       receiptId,
       receiptUrl: receiptDownloadUrl,
       paidAt,
+      webhookResult,
     });
   } catch (err) {
     return sendJson(res, 500, { error: err.message });

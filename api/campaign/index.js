@@ -11,17 +11,33 @@ const { recommendAddOn, isWithinNextNDays } = require('../../lib/rules');
 //   Shows the history of renewal webhook triggers fired by the cron job —
 //   useful as an audit trail of what fired and when.
 //
-// Both require header x-api-key.
+// GET /api/campaign?log=receipts
+//   Shows the history of payment-receipt webhook deliveries fired to Webex
+//   Connect (see api/payment/complete.js) — useful to confirm the receipt
+//   webhook actually fired and whether Webex Connect accepted it.
+//
+// All require header x-api-key.
 module.exports = async (req, res) => {
   if (!requireApiKey(req, res)) return;
   if (req.method !== 'GET') {
     return sendJson(res, 405, { error: 'Method not allowed' });
   }
 
-  const showLog = req.query.log === 'true' || req.query.log === '1';
+  const logParam = req.query.log;
 
   try {
-    if (showLog) {
+    if (logParam === 'receipts') {
+      const snapshot = await db()
+        .collection('webhook_deliveries')
+        .orderBy('triggeredAt', 'desc')
+        .limit(50)
+        .get();
+
+      const logs = snapshot.docs.map((d) => d.data());
+      return sendJson(res, 200, { count: logs.length, logs });
+    }
+
+    if (logParam === 'true' || logParam === '1') {
       const snapshot = await db()
         .collection('renewal_triggers')
         .orderBy('triggeredAt', 'desc')

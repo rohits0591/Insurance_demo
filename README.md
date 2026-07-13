@@ -105,14 +105,56 @@ wire `lib/sms.js` to Twilio/Gupshup for real delivery). Agent reads/SMS's the li
 This calls `/api/payment/complete`, which:
 - marks the payment completed
 - generates a PDF receipt (`lib/generateReceipt.js`)
-- uploads it to Firebase Storage
+- stores it as base64 inside the Firestore `receipts` doc (no Storage/Blaze needed)
 - returns a receipt download link: `/api/receipt/<receiptId>`
 - sends that link via the SMS stub
+- **fires a webhook to Webex Connect** with the receipt link, so a Connect flow
+  can push it to the customer's mobile over WhatsApp/SMS (see below)
 
 **Step D (optional)** — On a follow-up call, the agent can re-check status:
 ```bash
 curl https://<your-app>.vercel.app/api/payment/<paymentId>
 ```
+
+### Wiring the payment-receipt webhook to Webex Connect
+
+Set `WEBEX_CONNECT_RECEIPT_WEBHOOK_URL` in Vercel env vars to your Webex Connect
+flow's inbound webhook URL. The moment `/api/payment/complete` succeeds, it POSTs:
+```json
+{
+  "eventType": "PAYMENT_RECEIPT_READY",
+  "paymentId": "...",
+  "receiptId": "RCPT-XXXXXXXX",
+  "policyNumber": "SLI-100234",
+  "customerName": "Rohit Sharma",
+  "phone": "+919810000001",
+  "amount": 12500,
+  "paidAt": "2026-07-13T10:15:00.000Z",
+  "receiptUrl": "https://<your-app>.vercel.app/api/receipt/RCPT-XXXXXXXX",
+  "triggeredAt": "2026-07-13T10:15:00.500Z"
+}
+```
+Your Webex Connect flow reads `phone` and `receiptUrl` and sends the customer a
+WhatsApp/SMS message with the receipt link.
+
+**Quick demo (before the real Connect flow is built):** point
+`WEBEX_CONNECT_RECEIPT_WEBHOOK_URL` at this project's own mock receiver
+(`https://<your-app>.vercel.app/api/webex` — the same one used for use case 2)
+and check what arrived:
+```bash
+curl "https://<your-app>.vercel.app/api/webex" -H "x-api-key: <API_KEY>"
+```
+
+**Audit trail of every receipt webhook fired** (whether or not Connect is wired
+up yet), including delivery status:
+```bash
+curl "https://<your-app>.vercel.app/api/campaign?log=receipts" \
+  -H "x-api-key: <API_KEY>"
+```
+
+A failed/misconfigured webhook never blocks the payment itself — the customer's
+payment still completes and the receipt is still generated either way; only the
+webhook push to Connect is best-effort.
 
 ---
 
@@ -171,7 +213,8 @@ curl https://<your-app>.vercel.app/api/cron/check-renewals
 | GET | `/api/receipt/:receiptId` | public | Download receipt PDF |
 | GET/POST | `/api/cron/check-renewals` | public | Renewal scan + webhook trigger |
 | GET | `/api/campaign?days=7` | x-api-key | Pull-based renewal dial list |
-| GET | `/api/campaign?log=true` | x-api-key | Audit trail of fired triggers |
+| GET | `/api/campaign?log=true` | x-api-key | Audit trail of fired renewal triggers |
+| GET | `/api/campaign?log=receipts` | x-api-key | Audit trail of payment-receipt webhook deliveries |
 | POST | `/api/webex` | public | Mock Webex-side webhook receiver |
 | GET | `/api/webex` | x-api-key | See what the mock receiver logged |
 
